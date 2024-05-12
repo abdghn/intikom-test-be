@@ -19,6 +19,7 @@ func main() {
 	dbPort := "3306"
 	dbName := "intikom-test"
 	db := config.DbConnect(dbUser, dbPass, dbHost, dbPort, dbName)
+	googleConfig := config.GoogleConfig()
 
 	v1 := router.Group("/intikom-test/api/v1")
 
@@ -50,6 +51,13 @@ func main() {
 		task.POST("", th.Create)
 		task.PUT("/:id", th.Update)
 		task.DELETE("/:id", th.Delete)
+	}
+
+	ah := handler.NewAuthHandler(googleConfig)
+	auth := v1.Group("auth")
+	{
+		auth.GET("/google_login", ah.Googlelogin)
+		auth.GET("/google_callback", ah.GoogleCallback)
 	}
 
 	err := router.Run()
