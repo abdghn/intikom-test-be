@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"gorm.io/driver/mysql"
@@ -12,7 +13,7 @@ func DbConnect(DBUSER, DBPASSWORD, DBHOST, DBPORT, DBNAME string) *gorm.DB {
 	connectionString := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local", DBUSER, DBPASSWORD, DBHOST, DBPORT, DBNAME)
 	db, err := gorm.Open(mysql.Open(connectionString), &gorm.Config{})
 	if err != nil {
-		fmt.Errorf("Cannot Load database: %v ", err.Error()+"\n")
+		log.Fatalf("Cannot Load database: %v ", err.Error()+"\n")
 	}
 
 	sqlDB, err := db.DB()

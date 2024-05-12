@@ -13,6 +13,7 @@ type UserUsecase interface {
 	ReadAll() ([]*model.User, error)
 	Create(req model.UserInput) (*model.User, error)
 	ReadById(id int) (*model.User, error)
+	ReadByEmail(email string) (*model.User, error)
 	Update(id int, req *model.UserInput) (*model.User, error)
 	Delete(id int) error
 }
@@ -54,6 +55,10 @@ func (u *userUsecase) Create(req model.UserInput) (*model.User, error) {
 	}
 
 	return m, nil
+}
+
+func (u *userUsecase) ReadByEmail(email string) (*model.User, error) {
+	return u.userService.CheckByEmail(email)
 }
 
 func (u *userUsecase) ReadById(id int) (*model.User, error) {

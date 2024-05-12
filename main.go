@@ -1,29 +1,38 @@
 package main
 
 import (
-	"fmt"
+	"github.com/joho/godotenv"
 	"intikom-test-be/config"
 	"intikom-test-be/handler"
+	"intikom-test-be/helper"
 	"intikom-test-be/service"
 	"intikom-test-be/usecase"
+	"log"
+	"os"
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
 	router := gin.Default()
+	err := godotenv.Load()
 
-	dbUser := "root"
-	dbPass := ""
-	dbHost := "127.0.0.1"
-	dbPort := "3306"
-	dbName := "intikom-test"
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	dbUser := os.Getenv("DB_USER")
+	dbPass := os.Getenv("DB_PASSWORD")
+	dbHost := os.Getenv("DB_HOST")
+	dbPort := os.Getenv("DB_PORT")
+	dbName := os.Getenv("DB_NAME")
 	db := config.DbConnect(dbUser, dbPass, dbHost, dbPort, dbName)
 	googleConfig := config.GoogleConfig()
 
 	v1 := router.Group("/intikom-test/api/v1")
 
 	v1.GET("/ping", func(c *gin.Context) {
+		c.SetCookie("Authorization", "", 0, "", "", false, true)
 		c.JSON(200, gin.H{
 			"message": "pong",
 		})
@@ -45,6 +54,7 @@ func main() {
 	tu := usecase.NewTaskUsecase(ts)
 	th := handler.NewTaskHandler(tu)
 	task := v1.Group("task")
+	task.Use(helper.ValidateToken)
 	{
 		task.GET("", th.ReadAll)
 		task.GET("/:id", th.ReadById)
@@ -53,15 +63,15 @@ func main() {
 		task.DELETE("/:id", th.Delete)
 	}
 
-	ah := handler.NewAuthHandler(googleConfig)
+	ah := handler.NewAuthHandler(googleConfig, uu)
 	auth := v1.Group("auth")
 	{
 		auth.GET("/google_login", ah.Googlelogin)
 		auth.GET("/google_callback", ah.GoogleCallback)
 	}
 
-	err := router.Run()
+	err = router.Run()
 	if err != nil {
-		fmt.Errorf("error: %v", err)
+		log.Fatalf("error: %v", err)
 	}
 }

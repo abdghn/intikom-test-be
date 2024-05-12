@@ -2,7 +2,10 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"intikom-test-be/helper"
+	"intikom-test-be/usecase"
 	"io"
 	"net/http"
 
@@ -17,17 +20,16 @@ type AuthHandler interface {
 
 type authHandler struct {
 	googleConfig oauth2.Config
+	userUsecase  usecase.UserUsecase
 }
 
-func NewAuthHandler(googleConfig oauth2.Config) AuthHandler {
-	return &authHandler{googleConfig: googleConfig}
+func NewAuthHandler(googleConfig oauth2.Config, userUsecase usecase.UserUsecase) AuthHandler {
+	return &authHandler{googleConfig: googleConfig, userUsecase: userUsecase}
 }
 
 func (h *authHandler) Googlelogin(ctx *gin.Context) {
 	url := h.googleConfig.AuthCodeURL("randomstate")
-
-	ctx.Redirect(0, url)
-	ctx.JSON(http.StatusSeeOther, map[string]interface{}{url: url})
+	ctx.Redirect(http.StatusSeeOther, url)
 }
 
 func (h *authHandler) GoogleCallback(ctx *gin.Context) {
@@ -44,18 +46,31 @@ func (h *authHandler) GoogleCallback(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
+	resp, err := http.Get("https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=" + token.AccessToken)
 	if err != nil {
 		helper.HandleError(ctx, http.StatusInternalServerError, "User Data Fetch Failed")
 		return
 	}
 
-	userData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		helper.HandleError(ctx, http.StatusInternalServerError, "JSON Parsing Failed")
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+
+	var j map[string]interface{}
+
+	if err := json.Unmarshal(body, &j); err != nil {
+		helper.HandleError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	helper.HandleSuccess(ctx, string(userData))
+	user, err := h.userUsecase.ReadByEmail(fmt.Sprintf("%s", j["email"]))
+	if err != nil {
+		helper.HandleError(ctx, http.StatusUnauthorized, err.Error())
+	}
+
+	tokenString := helper.GenerateToken(user)
+
+	helper.HandleSuccess(ctx, map[string]interface{}{
+		"token": tokenString,
+	})
 
 }
